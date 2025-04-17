@@ -9,27 +9,73 @@ import Foundation
 import SwiftUI
 
 class CalculatorController: ObservableObject {
-    @Published var visibleWorking = ""
-    @Published var visibleResults = ""
-    @Published var showAlert = false
+    @Published var visibleWorking: String = ""
+    @Published var visibleResults: String = ""
+    @Published var showAlert: Bool = false
+    @Published var isShowingResult: Bool = false
+    
+
+    private func setShowingResult(_ value: Bool) -> Void {
+        isShowingResult = value
+    }
     
     private var model = CalculatorModel()
     
+    var clearButtonLabel: String {
+        if !visibleResults.isEmpty || visibleWorking.isEmpty {
+            return "AC"
+        }
+        return "⌦"
+    }
+
     func buttonPressed(_ cell: String){
-        switch cell {
-        case "AC":
-            visibleResults = ""
+        if !visibleResults.isEmpty && cell != "=" {
+            setShowingResult(false)
             visibleWorking = ""
-        case "⌦":
-            visibleWorking = String(visibleWorking.dropLast())
+            visibleResults = ""
+        }
+        
+        switch cell {
+        case "AC", "⌦":
+            if clearButtonLabel == "AC" {
+                visibleResults = ""
+                visibleWorking = ""
+            } else {
+                visibleWorking = String(visibleWorking.dropLast())
+            }
         case "=":
             calculateResults()
+            setShowingResult(true)
         case "-":
             addMinus()
         case "/", "+", "X", "%":
             addOperators(cell)
+        case "+/-":
+            toggleSign()
         default:
             visibleWorking += cell
+        }
+    }
+    
+    func toggleSign() {
+        guard !visibleWorking.isEmpty else { return }
+
+        let pattern = #"(\(-?\d+\.?\d*\)|-?\d+\.?\d*)$"#
+        if let range = visibleWorking.range(of: pattern, options: .regularExpression) {
+            let numberString = String(visibleWorking[range])
+
+            // Detectar si ya tiene paréntesis
+            if numberString.hasPrefix("(-") && numberString.hasSuffix(")") {
+                // Remover paréntesis y el signo negativo
+                let cleaned = numberString
+                    .replacingOccurrences(of: "(-", with: "")
+                    .replacingOccurrences(of: ")", with: "")
+                visibleWorking.replaceSubrange(range, with: cleaned)
+            } else {
+                // Convertirlo en negativo con paréntesis
+                let toggled = "(-\(numberString))"
+                visibleWorking.replaceSubrange(range, with: toggled)
+            }
         }
     }
     
@@ -62,5 +108,12 @@ class CalculatorController: ObservableObject {
         if visibleWorking.isEmpty || visibleWorking.last! != "-" {
             visibleWorking += "-"
         }
+    }
+    
+    func getActualVisible() -> String {
+        return visibleResults.isEmpty
+        ? visibleWorking
+        : visibleResults
+        
     }
 }
